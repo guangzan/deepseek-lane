@@ -171,7 +171,7 @@ Auto-generated at `~/.deepseek-lane/config.yaml` on first run:
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
 thinking: enabled
-reasoning_effort: max
+reasoning_effort: medium
 display_reasoning: true
 collapsible_reasoning: true
 
