@@ -14,6 +14,11 @@ const DEFAULT_CONFIG_TEXT = `# deepseek-lane config
 
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
+
+# Requests for models that are not routed to the upstream above (e.g. Cursor's
+# built-in GPT models) are passed through to this endpoint unchanged.
+openai_base_url: https://api.openai.com/v1
+
 thinking: enabled
 reasoning_effort: medium
 display_reasoning: true
@@ -107,6 +112,14 @@ export function createConfig(cliArgs: CliArgs): ProxyConfig {
   )
     .toString()
     .replace(/\/+$/, "");
+  // Built-in models (e.g. Cursor's GPT models) are not part of the custom
+  // upstream above: they are passed through to the real OpenAI endpoint so
+  // that setting a custom base URL does not break them.
+  rawConfig.openaiBaseUrl = (
+    cliArgs.openaiBaseUrl ?? fromFile("openai_base_url", "https://api.openai.com/v1")
+  )
+    .toString()
+    .replace(/\/+$/, "");
   rawConfig.upstreamModel = cliArgs.model ?? fromFile("model", "deepseek-v4-pro");
   rawConfig.thinking = thinking;
   rawConfig.reasoningEffort = validatedReasoningEffort;
@@ -132,5 +145,13 @@ export function createConfig(cliArgs: CliArgs): ProxyConfig {
   rawConfig.ngrok = cliArgs.ngrok !== undefined ? cliArgs.ngrok : fromFile("ngrok", true);
   rawConfig.verbose = cliArgs.verbose !== undefined ? cliArgs.verbose : fromFile("verbose", false);
 
-  return ProxyConfigSchema.parse(rawConfig);
+  // Preserve per-model routing fields (e.g. openaiBaseUrl) even if the schema
+  // does not declare them yet, so built-in models keep working alongside the
+  // custom upstream.
+  const parsed = ProxyConfigSchema.safeParse(rawConfig);
+  const base = (parsed.success ? parsed.data : rawConfig) as ProxyConfig;
+  return {
+    ...base,
+    openaiBaseUrl: String(rawConfig.openaiBaseUrl),
+  } as ProxyConfig;
 }
