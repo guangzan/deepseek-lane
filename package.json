@@ -1,6 +1,6 @@
 {
   "name": "deepseek-lane-monorepo",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "Monorepo for deepseek-lane proxy",
   "type": "module",

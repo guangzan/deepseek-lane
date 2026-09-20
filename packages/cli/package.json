@@ -1,6 +1,6 @@
 {
   "name": "deepseek-lane",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Local proxy that connects Cursor to DeepSeek thinking models via opencode API",
   "repository": {
     "type": "git",
