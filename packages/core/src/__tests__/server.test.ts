@@ -8,6 +8,7 @@ const mockConfig: ProxyConfig = {
   port: 9000,
   upstreamBaseUrl: "https://api.test.com",
   upstreamModel: "deepseek-v4-pro",
+  strictModelNames: false,
   thinking: "enabled",
   reasoningEffort: "max",
   requestTimeout: 300,
@@ -154,6 +155,77 @@ describe("POST /v1/chat/completions", () => {
     expect(body.model).toBe("deepseek-v4-pro");
     expect(body.choices[0].message.content).toBe("Hello!");
 
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("POST /v1/chat/completions with strict model names", () => {
+  function strictApp() {
+    const store = new ReasoningStore(":memory:");
+    return { app: createApp({ ...mockConfig, strictModelNames: true }, store), store };
+  }
+
+  function stubbedUpstream() {
+    const mockResponse = new Response(
+      JSON.stringify({
+        id: "test-1",
+        object: "chat.completion",
+        model: "deepseek-v4-pro",
+        choices: [{ index: 0, message: { role: "assistant", content: "Hello!" } }],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse));
+  }
+
+  it("rejects model names the proxy does not serve", async () => {
+    const { app } = strictApp();
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-key",
+      },
+      body: JSON.stringify({ model: "gpt-5.5", messages: [{ role: "user", content: "hi" }] }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as any;
+    expect(body.error.code).toBe("model_not_found");
+  });
+
+  it("serves deepseek model names", async () => {
+    stubbedUpstream();
+    const { app } = strictApp();
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-key",
+      },
+      body: JSON.stringify({
+        model: "deepseek-v4-flash",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    vi.unstubAllGlobals();
+  });
+
+  it("serves requests without a model field", async () => {
+    stubbedUpstream();
+    const { app } = strictApp();
+    const res = await app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-key",
+      },
+      body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }),
+    });
+
+    expect(res.status).toBe(200);
     vi.unstubAllGlobals();
   });
 });

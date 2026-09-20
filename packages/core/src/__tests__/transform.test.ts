@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vite-plus/test";
+import { describe, it, expect, vi } from "vite-plus/test";
 import {
   prepareUpstreamRequest,
   rewriteResponseBody,
   stripCursorThinkingBlocks,
   extractTextContent,
+  isServedModel,
 } from "../transform.js";
 import { ReasoningStore } from "../reasoning-store.js";
 import { ProxyConfig } from "../types.js";
@@ -13,6 +14,7 @@ const defaultConfig: ProxyConfig = {
   port: 9000,
   upstreamBaseUrl: "https://api.test.com",
   upstreamModel: "deepseek-v4-pro",
+  strictModelNames: false,
   thinking: "enabled",
   reasoningEffort: "medium",
   requestTimeout: 300,
@@ -88,6 +90,54 @@ describe("extractTextContent", () => {
   it("handles object content with JSON stringify", () => {
     const obj = { x: 1 };
     expect(extractTextContent(obj)).toBe(JSON.stringify(obj));
+  });
+});
+
+describe("isServedModel", () => {
+  it("accepts deepseek model names", () => {
+    expect(isServedModel("deepseek-v4-pro", defaultConfig)).toBe(true);
+    expect(isServedModel("deepseek-v4-flash", defaultConfig)).toBe(true);
+  });
+
+  it("accepts the configured default model", () => {
+    const config: ProxyConfig = { ...defaultConfig, upstreamModel: "my-alias" };
+    expect(isServedModel("my-alias", config)).toBe(true);
+  });
+
+  it("rejects model names the proxy does not serve", () => {
+    expect(isServedModel("gpt-5.5", defaultConfig)).toBe(false);
+  });
+});
+
+describe("substituted model names", () => {
+  it("warns once per substituted model name", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const payload = {
+      model: "gpt-5.5-unique-to-this-test",
+      messages: [{ role: "user", content: "hi" }],
+    };
+
+    prepareUpstreamRequest(payload, defaultConfig, null);
+    prepareUpstreamRequest(payload, defaultConfig, null);
+
+    const warnings = spy.mock.calls.filter((call) =>
+      String(call[1] ?? "").includes("is not served by this proxy"),
+    );
+    expect(warnings).toHaveLength(1);
+    spy.mockRestore();
+  });
+
+  it("does not warn when the requested model is the configured default", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const config: ProxyConfig = { ...defaultConfig, upstreamModel: "my-alias" };
+
+    prepareUpstreamRequest({ messages: [{ role: "user", content: "hi" }] }, config, null);
+
+    const warnings = spy.mock.calls.filter((call) =>
+      String(call[1] ?? "").includes("is not served by this proxy"),
+    );
+    expect(warnings).toHaveLength(0);
+    spy.mockRestore();
   });
 });
 

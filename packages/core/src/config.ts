@@ -14,6 +14,9 @@ const DEFAULT_CONFIG_TEXT = `# deepseek-lane config
 
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
+# Reject model names this proxy does not serve instead of answering them with
+# the default model above.
+strict_model_names: false
 thinking: enabled
 reasoning_effort: medium
 display_reasoning: true
@@ -108,6 +111,10 @@ export function createConfig(cliArgs: CliArgs): ProxyConfig {
     .toString()
     .replace(/\/+$/, "");
   rawConfig.upstreamModel = cliArgs.model ?? fromFile("model", "deepseek-v4-pro");
+  rawConfig.strictModelNames =
+    cliArgs.strictModelNames !== undefined
+      ? cliArgs.strictModelNames
+      : fromFile("strict_model_names", false);
   rawConfig.thinking = thinking;
   rawConfig.reasoningEffort = validatedReasoningEffort;
   rawConfig.requestTimeout = cliArgs.requestTimeout ?? fromFile("request_timeout", 300);

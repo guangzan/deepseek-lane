@@ -50,7 +50,7 @@ Cursor 将请求发送给代理而非直接调用上游 API。代理的执行流
 
 代理使用对话上下文的 SHA-256 哈希作为缓存键，确保在并发对话中也能正确匹配推理内容。
 
-**模型名称。** 代理服务的是 DeepSeek 模型：`deepseek-v4-pro`、`deepseek-v4-flash`，以及你配置中的默认模型。任何不以 `deepseek-` 开头的模型名都会被当作默认模型发往上游，而响应会保留你请求时用的名字。除非你确实想要这种替换，否则请在 Cursor 里使用 DeepSeek 模型名。
+**模型名称。** 代理服务的是 DeepSeek 模型：`deepseek-v4-pro`、`deepseek-v4-flash`，以及你配置中的默认模型。任何不以 `deepseek-` 开头的模型名都会被当作默认模型发往上游，而响应会保留你请求时用的名字。除非你确实想要这种替换，否则请在 Cursor 里使用 DeepSeek 模型名；也可以把 `strict_model_names` 设为 `true`，让这类请求直接收到 `model_not_found` 错误。
 
 ## 快速开始
 
@@ -157,6 +157,7 @@ dsl start --no-interactive
 | `--host <host>`                                          | 绑定地址（默认 `127.0.0.1`）                |
 | `--port <port>`                                          | 绑定端口（默认 `19199`）                    |
 | `--model <model>`                                        | 上游模型名称                                |
+| `--strict-model-names` / `--no-strict-model-names`       | 拒绝本代理不服务的模型名                    |
 | `--base-url <url>`                                       | 上游 API 地址                               |
 | `--thinking <mode>`                                      | 思考模式：`enabled` / `disabled`            |
 | `--reasoning-effort <level>`                             | `low` / `medium` / `high` / `max` / `xhigh` |
@@ -175,6 +176,7 @@ dsl start --no-interactive
 ```yaml
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
+strict_model_names: false
 thinking: enabled
 reasoning_effort: medium
 display_reasoning: true

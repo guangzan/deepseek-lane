@@ -50,7 +50,7 @@ Cursor sends requests to the proxy instead of the upstream API. The proxy:
 
 The proxy uses SHA-256 hashes of the conversation context as cache keys, ensuring reasoning content is correctly matched across concurrent conversations with overlapping tool-call IDs.
 
-**Model names.** The proxy serves DeepSeek models: `deepseek-v4-pro`, `deepseek-v4-flash`, and the default model from your config. A request for any name that does not start with `deepseek-` is forwarded upstream as the configured default model, and the response keeps the name you requested. Use one of the DeepSeek model names in Cursor unless you intend that substitution.
+**Model names.** The proxy serves DeepSeek models: `deepseek-v4-pro`, `deepseek-v4-flash`, and the default model from your config. A request for any name that does not start with `deepseek-` is forwarded upstream as the configured default model, and the response keeps the name you requested. Use one of the DeepSeek model names in Cursor unless you intend that substitution, or set `strict_model_names: true` to reject such requests with a `model_not_found` error instead.
 
 ## Getting started
 
@@ -157,6 +157,7 @@ dsl start --no-interactive
 | `--host <host>`                                          | Bind host (default: `127.0.0.1`)            |
 | `--port <port>`                                          | Bind port (default: `19199`)                |
 | `--model <model>`                                        | Upstream model name                         |
+| `--strict-model-names` / `--no-strict-model-names`       | Reject model names the proxy does not serve |
 | `--base-url <url>`                                       | Upstream API base URL                       |
 | `--thinking <mode>`                                      | Thinking mode: `enabled` / `disabled`       |
 | `--reasoning-effort <level>`                             | `low` / `medium` / `high` / `max` / `xhigh` |
@@ -175,6 +176,7 @@ Auto-generated at `~/.deepseek-lane/config.yaml` on first run:
 ```yaml
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
+strict_model_names: false
 thinking: enabled
 reasoning_effort: medium
 display_reasoning: true
