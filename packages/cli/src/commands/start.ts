@@ -23,6 +23,8 @@ const startCmd = new Command("start")
   .option("--host <host>", "Bind host", "127.0.0.1")
   .option("--port <port>", "Bind port", (v: string) => parseInt(v, 10), 19199)
   .option("--model <model>", "Default model", "deepseek-v4-pro")
+  .option("--strict-model-names", "Reject model names this proxy does not serve")
+  .option("--no-strict-model-names", "Answer unsupported model names with the default model")
   .option("--base-url <url>", "Upstream API base URL")
   .option("--thinking <mode>", "Thinking mode: enabled|disabled", "enabled")
   .option("--reasoning-effort <level>", "Reasoning effort: low|medium|high|max|xhigh", "medium")
@@ -313,6 +315,8 @@ function parseArgs(rawOpts: Record<string, unknown>): CliArgs {
     args.missingReasoningStrategy = rawOpts.missingReasoningStrategy as "recover" | "reject";
   if (rawOpts.clearReasoningCache) args.clearReasoningCache = true;
 
+  if (rawOpts.strictModelNames === true) args.strictModelNames = true;
+  if (rawOpts.strictModelNames === false) args.strictModelNames = false;
   if (rawOpts.ngrok === true) args.ngrok = true;
   if (rawOpts.ngrok === false) args.ngrok = false;
   if (rawOpts.verbose === true) args.verbose = true;

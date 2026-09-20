@@ -13,6 +13,7 @@ function mockConfig(overrides: Partial<ProxyConfig> = {}): ProxyConfig {
     port: 9000,
     upstreamBaseUrl: "http://127.0.0.1:1",
     upstreamModel: "deepseek-v4-pro",
+    strictModelNames: false,
     thinking: "enabled",
     reasoningEffort: "max",
     requestTimeout: 5,

@@ -8,7 +8,7 @@ import type { Ora } from "ora";
 import { ProxyConfig, ChatMessage } from "./types.js";
 import type { PreparedRequest } from "./schemas.js";
 import { ReasoningStore, conversationScope } from "./reasoning-store.js";
-import { prepareUpstreamRequest, rewriteResponseBody } from "./transform.js";
+import { prepareUpstreamRequest, rewriteResponseBody, isServedModel } from "./transform.js";
 import { StreamAccumulator, CursorReasoningDisplayAdapter } from "./streaming.js";
 import {
   log,
@@ -85,6 +85,11 @@ async function proxyToUpstream(
   }
 }
 
+// Models this proxy advertises over /v1/models and accepts by name.
+function servedModelIds(config: ProxyConfig): string[] {
+  return [...new Set([config.upstreamModel, "deepseek-v4-pro", "deepseek-v4-flash"])];
+}
+
 export function createApp(config: ProxyConfig, store: ReasoningStore) {
   const app = new Hono();
 
@@ -111,7 +116,7 @@ export function createApp(config: ProxyConfig, store: ReasoningStore) {
   // Models list
   app.get("/v1/models", (c) => {
     const created = Math.floor(Date.now() / 1000);
-    const modelIds = [...new Set([config.upstreamModel, "deepseek-v4-pro", "deepseek-v4-flash"])];
+    const modelIds = servedModelIds(config);
     const models = modelIds.map((id) => ({
       id,
       object: "model",
@@ -159,6 +164,19 @@ export function createApp(config: ProxyConfig, store: ReasoningStore) {
     }
 
     const model = typeof payload.model === "string" ? payload.model : config.upstreamModel;
+    if (config.strictModelNames && !isServedModel(model, config)) {
+      logWarn(`rejecting unsupported model ${model}; strict_model_names is enabled`);
+      return c.json(
+        {
+          error: {
+            message: `The model \`${model}\` is not served by this proxy. Use ${servedModelIds(config).join(", ")}.`,
+            type: "invalid_request_error",
+            code: "model_not_found",
+          },
+        },
+        404 as ContentfulStatusCode,
+      );
+    }
     logInfo(
       `${boxChar.topLeft} request model=${model} effort=${config.reasoningEffort} messages=${(payload.messages as unknown[])?.length ?? 0}`,
     );

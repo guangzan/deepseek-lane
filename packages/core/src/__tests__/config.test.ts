@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vite-plus/test";
+import { existsSync, readFileSync } from "fs";
 import { createConfig } from "../config.js";
 
 // Mock fs to avoid touching real filesystem
@@ -20,6 +21,7 @@ describe("createConfig", () => {
     expect(config.port).toBe(19199);
     expect(config.upstreamBaseUrl).toBe("https://opencode.ai/zen/go/v1");
     expect(config.upstreamModel).toBe("deepseek-v4-pro");
+    expect(config.strictModelNames).toBe(false);
     expect(config.thinking).toBe("enabled");
     expect(config.reasoningEffort).toBe("medium");
     expect(config.ngrok).toBe(true);
@@ -44,6 +46,18 @@ describe("createConfig", () => {
   it("overrides model via CLI", () => {
     const config = createConfig({ model: "deepseek-v4-flash" });
     expect(config.upstreamModel).toBe("deepseek-v4-flash");
+  });
+
+  it("enables strict model names via CLI", () => {
+    const config = createConfig({ strictModelNames: true });
+    expect(config.strictModelNames).toBe(true);
+  });
+
+  it("reads strict model names from the config file", () => {
+    vi.mocked(existsSync).mockReturnValueOnce(true);
+    vi.mocked(readFileSync).mockReturnValueOnce("strict_model_names: true\n" as never);
+    const config = createConfig({});
+    expect(config.strictModelNames).toBe(true);
   });
 
   it("overrides base URL via CLI", () => {

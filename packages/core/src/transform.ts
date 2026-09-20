@@ -11,7 +11,7 @@ import {
   turnContextSignature,
 } from "./reasoning-store.js";
 import { normalizeReasoningEffort, foldReasoningIntoContent } from "./streaming.js";
-import { logVerbose } from "./logging.js";
+import { logVerbose, logWarn } from "./logging.js";
 
 function safeString(v: unknown, def = ""): string {
   if (v == null) return def;
@@ -606,7 +606,30 @@ function assistantNeedsReasoningForToolContext(
 // default model. OpenCode AI and other upstream providers accept deepseek- models.
 function upstreamModelFor(originalModel: string, config: ProxyConfig): string {
   if (originalModel.startsWith("deepseek-")) return originalModel;
+  if (originalModel !== config.upstreamModel) {
+    warnModelSubstitution(originalModel, config.upstreamModel);
+  }
   return config.upstreamModel;
+}
+
+// Whether a requested model name is one this proxy actually serves: either a
+// DeepSeek model name, or the configured default model itself.
+export function isServedModel(model: string, config: ProxyConfig): boolean {
+  return model.startsWith("deepseek-") || model === config.upstreamModel;
+}
+
+const reportedSubstitutions = new Set<string>();
+
+// Requests for models this proxy does not serve are answered by the default
+// model, which is easy to miss when reading only the model picker. Report each
+// substituted name once per process.
+function warnModelSubstitution(originalModel: string, upstreamModel: string): void {
+  const key = `${originalModel}->${upstreamModel}`;
+  if (reportedSubstitutions.has(key)) return;
+  reportedSubstitutions.add(key);
+  logWarn(
+    `model ${originalModel} is not served by this proxy; requests are answered by ${upstreamModel}`,
+  );
 }
 
 function reasoningModelFamily(model: string): string {

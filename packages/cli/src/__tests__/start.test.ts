@@ -49,6 +49,7 @@ vi.mock("@deepseek-lane/core", () => ({
     port: 19199,
     upstreamBaseUrl: "https://api.test.com",
     upstreamModel: "deepseek-v4-pro",
+    strictModelNames: false,
     thinking: "enabled",
     reasoningEffort: "medium",
     requestTimeout: 300,
