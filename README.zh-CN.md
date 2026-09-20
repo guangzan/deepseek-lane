@@ -50,6 +50,8 @@ Cursor 将请求发送给代理而非直接调用上游 API。代理的执行流
 
 代理使用对话上下文的 SHA-256 哈希作为缓存键，确保在并发对话中也能正确匹配推理内容。
 
+**模型名称。** 代理服务的是 DeepSeek 模型：`deepseek-v4-pro`、`deepseek-v4-flash`，以及你配置中的默认模型。任何不以 `deepseek-` 开头的模型名都会被当作默认模型发往上游，而响应会保留你请求时用的名字。除非你确实想要这种替换，否则请在 Cursor 里使用 DeepSeek 模型名。
+
 ## 快速开始
 
 ### 前置要求
@@ -88,7 +90,7 @@ dsl start
 
 ```
 ✓ Model: deepseek-v4-pro (thinking, max)
-▸ Local:  http://127.0.0.1:9000/v1
+▸ Local:  http://127.0.0.1:19199/v1
 ▸ Public: https://你的隧道.ngrok-free.dev/v1
 ```
 
@@ -102,6 +104,9 @@ dsl start
 5. 使用 `Cmd+Shift+0`（Mac）或 `Ctrl+Shift+0`（Windows/Linux）切换自定义 API
 
 在模型选择器中选择 `deepseek-v4-pro` 或 `deepseek-v4-flash` 即可开始对话。
+
+> [!WARNING]
+> Cursor 的 **Override OpenAI Base URL** 作用于**全部** OpenAI 系列请求，而不只是你添加的那个模型。该设置开启期间，从内置模型选择器里选中的模型同样会被发到本代理，且 Cursor 目前没有为内置模型保留例外。本代理只会把请求转发到你配置的 DeepSeek 上游，因此 GPT-5.x 这类内置模型不会按平常的方式工作。使用内置模型时请关闭该覆盖（或用 `Cmd+Shift+0` / `Ctrl+Shift+0` 关闭自定义 API），使用 `deepseek-v4-pro` / `deepseek-v4-flash` 时再打开。
 
 ## 使用说明
 
@@ -150,7 +155,7 @@ dsl start --no-interactive
 | -------------------------------------------------------- | ------------------------------------------- |
 | `--config <path>`                                        | 配置文件路径                                |
 | `--host <host>`                                          | 绑定地址（默认 `127.0.0.1`）                |
-| `--port <port>`                                          | 绑定端口（默认 `9000`）                     |
+| `--port <port>`                                          | 绑定端口（默认 `19199`）                    |
 | `--model <model>`                                        | 上游模型名称                                |
 | `--base-url <url>`                                       | 上游 API 地址                               |
 | `--thinking <mode>`                                      | 思考模式：`enabled` / `disabled`            |
@@ -171,12 +176,12 @@ dsl start --no-interactive
 base_url: https://opencode.ai/zen/go/v1
 model: deepseek-v4-pro
 thinking: enabled
-reasoning_effort: max
+reasoning_effort: medium
 display_reasoning: true
 collapsible_reasoning: true
 
 host: 127.0.0.1
-port: 9000
+port: 19199
 ngrok: true
 verbose: false
 request_timeout: 300
@@ -241,7 +246,7 @@ deepseek-lane/
 **代理无法启动，端口被占用**
 
 ```bash
-lsof -ti:9000 | xargs kill
+lsof -ti:19199 | xargs kill
 ```
 
 **ngrok 错误**
@@ -253,6 +258,10 @@ ngrok config check
 ```
 
 代理访问 ngrok API 的地址为 `http://127.0.0.1:4040/api`。
+
+**内置模型（GPT-5.x、o 系列）不可用**
+
+Cursor 的 **Override OpenAI Base URL** 覆盖全部 OpenAI 系列请求，因此该设置开启时，从内置模型选择器里选中的模型也会被发到本代理。本代理只会转发到你配置的 DeepSeek 上游，这些请求要么由 DeepSeek 回答，要么被告知模型不可用。使用 Cursor 内置模型时请关闭该覆盖（或关闭自定义 API）。
 
 **"reasoning_content must be passed back" 错误**
 

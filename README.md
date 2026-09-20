@@ -50,6 +50,8 @@ Cursor sends requests to the proxy instead of the upstream API. The proxy:
 
 The proxy uses SHA-256 hashes of the conversation context as cache keys, ensuring reasoning content is correctly matched across concurrent conversations with overlapping tool-call IDs.
 
+**Model names.** The proxy serves DeepSeek models: `deepseek-v4-pro`, `deepseek-v4-flash`, and the default model from your config. A request for any name that does not start with `deepseek-` is forwarded upstream as the configured default model, and the response keeps the name you requested. Use one of the DeepSeek model names in Cursor unless you intend that substitution.
+
 ## Getting started
 
 ### Prerequisites
@@ -88,7 +90,7 @@ When ngrok is enabled, the proxy prints the public URL on startup:
 
 ```
 ✓ Model: deepseek-v4-pro (thinking, max)
-▸ Local:  http://127.0.0.1:9000/v1
+▸ Local:  http://127.0.0.1:19199/v1
 ▸ Public: https://your-tunnel.ngrok-free.dev/v1
 ```
 
@@ -102,6 +104,9 @@ When ngrok is enabled, the proxy prints the public URL on startup:
 5. Toggle the custom API with `Cmd+Shift+0` (macOS) or `Ctrl+Shift+0`
 
 Select `deepseek-v4-pro` or `deepseek-v4-flash` in the model picker and start chatting.
+
+> [!WARNING]
+> Cursor applies **Override OpenAI Base URL** to every OpenAI-family request, not just to the model you added. While that setting is enabled, models picked from Cursor's built-in picker are sent to this proxy as well, and Cursor currently has no per-model carve-out for them. Since the proxy only routes to your configured DeepSeek upstream, built-in models like GPT-5.x will not behave as usual. Turn the override off (or toggle the custom API off with `Cmd+Shift+0` / `Ctrl+Shift+0`) while you use Cursor's built-in models, and turn it back on for `deepseek-v4-pro` / `deepseek-v4-flash`.
 
 ## Usage
 
@@ -150,7 +155,7 @@ dsl start --no-interactive
 | -------------------------------------------------------- | ------------------------------------------- |
 | `--config <path>`                                        | Config file path                            |
 | `--host <host>`                                          | Bind host (default: `127.0.0.1`)            |
-| `--port <port>`                                          | Bind port (default: `9000`)                 |
+| `--port <port>`                                          | Bind port (default: `19199`)                |
 | `--model <model>`                                        | Upstream model name                         |
 | `--base-url <url>`                                       | Upstream API base URL                       |
 | `--thinking <mode>`                                      | Thinking mode: `enabled` / `disabled`       |
@@ -176,7 +181,7 @@ display_reasoning: true
 collapsible_reasoning: true
 
 host: 127.0.0.1
-port: 9000
+port: 19199
 ngrok: true
 verbose: false
 request_timeout: 300
@@ -241,7 +246,7 @@ deepseek-lane/
 **Proxy won't start, port in use**
 
 ```bash
-lsof -ti:9000 | xargs kill
+lsof -ti:19199 | xargs kill
 ```
 
 **ngrok errors**
@@ -253,6 +258,10 @@ ngrok config check
 ```
 
 The proxy looks for the ngrok API at `http://127.0.0.1:4040/api`.
+
+**Built-in models (GPT-5.x, o-series) stopped working**
+
+Cursor's **Override OpenAI Base URL** setting covers every OpenAI-family request, so models picked from the built-in picker are routed to this proxy while it is enabled. The proxy only forwards to your DeepSeek upstream, so those requests either come back from DeepSeek or are reported as unavailable. Turn the override off (or toggle the custom API off) while using Cursor's built-in models.
 
 **"reasoning_content must be passed back"**
 
