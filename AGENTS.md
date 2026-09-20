@@ -13,3 +13,12 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - [ ] Check if there are `vite.config.ts` tasks or `package.json` scripts necessary for validation, run via `vp run <script>`.
 
 <!--VITE PLUS END-->
+
+## Agent skills
+
+This repo uses **rail** skills. All rail docs live under `docs/monorail/`.
+
+- Work tracker: `docs/monorail/work-tracker.md`
+- Domain docs: `docs/monorail/domain.md`
+
+Run `/rail-setup` again only if these conventions change. Prefer `/rail` to see the main flow.
