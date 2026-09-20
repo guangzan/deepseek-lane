@@ -36,7 +36,7 @@ cd("packages/cli");
 // Use npx to run the latest npm which supports Trusted Publishing (OIDC).
 // The npm bundled with vp's Node.js runtime may be too old.
 if (releaseTag) {
-  await $`npx npm@latest publish --access public --no-git-checks --provenance --tag ${releaseTag}`;
+  await $`npx npm@latest publish --access public --provenance --tag ${releaseTag}`;
 } else {
-  await $`npx npm@latest publish --access public --no-git-checks --provenance`;
+  await $`npx npm@latest publish --access public --provenance`;
 }
