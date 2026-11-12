@@ -162,6 +162,7 @@ dsl start --no-interactive
 | `--thinking <mode>`                                      | 思考模式：`enabled` / `disabled`            |
 | `--reasoning-effort <level>`                             | `low` / `medium` / `high` / `max` / `xhigh` |
 | `--request-timeout <s>`                                  | 上游请求超时（秒）                          |
+| `--max-concurrency <n>`                                  | 上游并发上限（`0` 表示不限制）              |
 | `--missing-reasoning-strategy <s>`                       | `recover`（默认）或 `reject`                |
 | `--clear-reasoning-cache`                                | 清空本地推理缓存                            |
 | `--ngrok` / `--no-ngrok`                                 | 启用/禁用 ngrok 隧道                        |
@@ -188,6 +189,7 @@ ngrok: true
 verbose: false
 request_timeout: 300
 max_request_body_bytes: 20971520
+max_concurrency: 4
 
 missing_reasoning_strategy: recover
 reasoning_cache_max_age_seconds: 2592000

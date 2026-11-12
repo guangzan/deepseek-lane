@@ -133,3 +133,27 @@ describe("createConfig", () => {
     // doesn't affect config output, just a flag for main()
   });
 });
+
+describe("createConfig max_concurrency", () => {
+  it("defaults to 4", () => {
+    const config = createConfig({});
+    expect(config.maxConcurrency).toBe(4);
+  });
+
+  it("sets max concurrency via CLI", () => {
+    const config = createConfig({ maxConcurrency: 2 });
+    expect(config.maxConcurrency).toBe(2);
+  });
+
+  it("reads max concurrency from the config file", () => {
+    vi.mocked(existsSync).mockReturnValueOnce(true);
+    vi.mocked(readFileSync).mockReturnValueOnce("max_concurrency: 8\n" as never);
+    const config = createConfig({});
+    expect(config.maxConcurrency).toBe(8);
+  });
+
+  it("allows zero to disable the limit", () => {
+    const config = createConfig({ maxConcurrency: 0 });
+    expect(config.maxConcurrency).toBe(0);
+  });
+});

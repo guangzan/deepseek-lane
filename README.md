@@ -162,6 +162,7 @@ dsl start --no-interactive
 | `--thinking <mode>`                                      | Thinking mode: `enabled` / `disabled`       |
 | `--reasoning-effort <level>`                             | `low` / `medium` / `high` / `max` / `xhigh` |
 | `--request-timeout <s>`                                  | Upstream request timeout in seconds         |
+| `--max-concurrency <n>`                                  | Max concurrent upstream requests (0 = off)  |
 | `--missing-reasoning-strategy <s>`                       | `recover` (default) or `reject`             |
 | `--clear-reasoning-cache`                                | Clear the local reasoning cache and exit    |
 | `--ngrok` / `--no-ngrok`                                 | Enable/disable ngrok tunnel                 |
@@ -188,6 +189,7 @@ ngrok: true
 verbose: false
 request_timeout: 300
 max_request_body_bytes: 20971520
+max_concurrency: 4
 
 missing_reasoning_strategy: recover
 reasoning_cache_max_age_seconds: 2592000

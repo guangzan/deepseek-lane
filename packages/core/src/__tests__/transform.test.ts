@@ -18,6 +18,7 @@ const defaultConfig: ProxyConfig = {
   thinking: "enabled",
   reasoningEffort: "medium",
   requestTimeout: 300,
+  maxConcurrency: 4,
   maxRequestBodyBytes: 20 * 1024 * 1024,
   reasoningContentPath: ":memory:",
   missingReasoningStrategy: "recover",
