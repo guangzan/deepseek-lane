@@ -17,6 +17,7 @@ function mockConfig(overrides: Partial<ProxyConfig> = {}): ProxyConfig {
     thinking: "enabled",
     reasoningEffort: "max",
     requestTimeout: 5,
+    maxConcurrency: 4,
     maxRequestBodyBytes: 20 * 1024 * 1024,
     reasoningContentPath: ":memory:",
     missingReasoningStrategy: "recover",

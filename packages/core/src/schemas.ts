@@ -107,6 +107,7 @@ export const ProxyConfigSchema = z.object({
   thinking: ThinkingEnum.default("enabled"),
   reasoningEffort: ReasoningEffortEnum.default("medium"),
   requestTimeout: z.coerce.number().default(300),
+  maxConcurrency: z.coerce.number().int().min(0).default(4),
   maxRequestBodyBytes: z.coerce
     .number()
     .int()
@@ -138,6 +139,7 @@ export const CliArgsSchema = z.object({
   displayReasoning: z.coerce.boolean().optional(),
   collapsibleReasoning: z.coerce.boolean().optional(),
   requestTimeout: z.coerce.number().optional(),
+  maxConcurrency: z.coerce.number().int().min(0).optional(),
   maxRequestBodyBytes: z.coerce.number().int().optional(),
   missingReasoningStrategy: z.string().optional(),
   noNgrok: z.coerce.boolean().optional(),

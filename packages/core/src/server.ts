@@ -21,6 +21,7 @@ import {
   boxChar,
 } from "./logging.js";
 import { NgrokTunnel, localTunnelTarget } from "./tunnel.js";
+import { ConcurrencyLimiter, ConcurrencyLimitTimeoutError } from "./concurrency.js";
 import { setVerbose } from "./logging.js";
 
 const RECOVERY_NOTICE_CONTENT = "[cursor-deepseek] Refreshed reasoning_content history.\n\n";
@@ -92,6 +93,7 @@ function servedModelIds(config: ProxyConfig): string[] {
 
 export function createApp(config: ProxyConfig, store: ReasoningStore) {
   const app = new Hono();
+  const limiter = new ConcurrencyLimiter(config.maxConcurrency);
 
   app.use(
     "/v1/*",
@@ -211,6 +213,34 @@ export function createApp(config: ProxyConfig, store: ReasoningStore) {
 
     const spinner = createSpinner(`${boxChar.bottomTee} waiting...`);
 
+    // Wait for a free slot before touching the upstream. The wait shares the
+    // request timeout: once it expires the request is rejected here instead of
+    // piling more load onto an upstream that is already refusing work.
+    let release: () => void;
+    try {
+      release = await limiter.acquire(config.requestTimeout > 0 ? config.requestTimeout * 1000 : 0);
+    } catch (err) {
+      spinner.stop();
+      if (err instanceof ConcurrencyLimitTimeoutError) {
+        logWarn(
+          `concurrency limit ${limiter.limit} is saturated; waited ${err.waitedMs}ms for a free slot`,
+        );
+        return c.json(
+          {
+            error: {
+              message: `This proxy allows ${limiter.limit} concurrent upstream request(s) and no slot became free in time. Raise max_concurrency if the upstream can take more.`,
+              type: "rate_limit_error",
+              code: "concurrency_limit",
+            },
+          },
+          429 as ContentfulStatusCode,
+        );
+      }
+      throw err;
+    }
+
+    let handedOff = false;
+
     try {
       const upstreamRes = await proxyToUpstream(
         upstreamUrl,
@@ -233,9 +263,11 @@ export function createApp(config: ProxyConfig, store: ReasoningStore) {
       }
 
       if (isStream) {
-        return handleStreamingResponse(c, upstreamRes, prepared, config, store, spinner);
+        handedOff = true;
+        return handleStreamingResponse(c, upstreamRes, prepared, config, store, spinner, release);
       } else {
-        return handleRegularResponse(c, upstreamRes, prepared, config, store, started);
+        handedOff = true;
+        return handleRegularResponse(c, upstreamRes, prepared, config, store, started, release);
       }
     } catch (err) {
       spinner.stop();
@@ -245,6 +277,10 @@ export function createApp(config: ProxyConfig, store: ReasoningStore) {
         { error: { message: `Upstream request failed: ${msg}` } },
         502 as ContentfulStatusCode,
       );
+    } finally {
+      // Slots for responses that are still streaming are released by the
+      // handler that owns the stream.
+      if (!handedOff) release();
     }
   });
 
@@ -258,6 +294,7 @@ async function handleStreamingResponse(
   config: ProxyConfig,
   store: ReasoningStore,
   spinner: Ora,
+  release: () => void,
 ): Promise<Response> {
   return streamSSE(c, async (stream) => {
     let usage: UsageInfo | undefined;
@@ -366,6 +403,7 @@ async function handleStreamingResponse(
       }
     } finally {
       spinner.stop();
+      release();
     }
 
     // Log stats
@@ -385,46 +423,51 @@ async function handleRegularResponse(
   config: ProxyConfig,
   store: ReasoningStore,
   started: number,
+  release: () => void,
 ): Promise<Response> {
-  const upstreamBody = new Uint8Array(await upstreamRes.arrayBuffer());
-
-  let body: Uint8Array = upstreamBody;
-  let usage: UsageInfo | undefined;
-
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(upstreamBody)) as Record<string, unknown>;
-    usage = parsed.usage as UsageInfo | undefined;
+    const upstreamBody = new Uint8Array(await upstreamRes.arrayBuffer());
 
-    body = rewriteResponseBody(
-      upstreamBody as unknown as Uint8Array,
-      prepared.originalModel,
-      store,
-      prepared.recordResponseMessages ?? [],
-      prepared.cacheNamespace,
-      prepared.recoveryNotice,
-      prepared.recordResponseScope,
-      prepared.recordResponseMessages,
-      prepared.recordResponseContexts,
-      config.displayReasoning,
-      config.collapsibleReasoning,
+    let body: Uint8Array = upstreamBody;
+    let usage: UsageInfo | undefined;
+
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(upstreamBody)) as Record<string, unknown>;
+      usage = parsed.usage as UsageInfo | undefined;
+
+      body = rewriteResponseBody(
+        upstreamBody as unknown as Uint8Array,
+        prepared.originalModel,
+        store,
+        prepared.recordResponseMessages ?? [],
+        prepared.cacheNamespace,
+        prepared.recoveryNotice,
+        prepared.recordResponseScope,
+        prepared.recordResponseMessages,
+        prepared.recordResponseContexts,
+        config.displayReasoning,
+        config.collapsibleReasoning,
+      );
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logWarn(`failed to rewrite upstream JSON response: ${errMsg}`);
+    }
+
+    // Log stats
+    const promptTokens = usage?.prompt_tokens ?? "?";
+    const completionTokens = usage?.completion_tokens ?? "?";
+    const reasoningTokens = usage?.completion_tokens_details?.reasoning_tokens ?? "?";
+    logInfo(
+      `${boxChar.bottomTee} stats prompt=${promptTokens} output=${completionTokens} reasoning=${reasoningTokens} elapsed=${Date.now() - started}ms`,
     );
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    logWarn(`failed to rewrite upstream JSON response: ${errMsg}`);
+
+    return c.newResponse(body as any, upstreamRes.status as ContentfulStatusCode, {
+      "Content-Type": upstreamRes.headers.get("content-type") || "application/json",
+      "Content-Length": String(body.byteLength),
+    });
+  } finally {
+    release();
   }
-
-  // Log stats
-  const promptTokens = usage?.prompt_tokens ?? "?";
-  const completionTokens = usage?.completion_tokens ?? "?";
-  const reasoningTokens = usage?.completion_tokens_details?.reasoning_tokens ?? "?";
-  logInfo(
-    `${boxChar.bottomTee} stats prompt=${promptTokens} output=${completionTokens} reasoning=${reasoningTokens} elapsed=${Date.now() - started}ms`,
-  );
-
-  return c.newResponse(body as any, upstreamRes.status as ContentfulStatusCode, {
-    "Content-Type": upstreamRes.headers.get("content-type") || "application/json",
-    "Content-Length": String(body.byteLength),
-  });
 }
 
 export async function startServer(

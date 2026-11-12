@@ -12,6 +12,7 @@ const mockConfig: ProxyConfig = {
   thinking: "enabled",
   reasoningEffort: "max",
   requestTimeout: 300,
+  maxConcurrency: 4,
   maxRequestBodyBytes: 20 * 1024 * 1024,
   reasoningContentPath: ":memory:",
   missingReasoningStrategy: "recover",
@@ -226,6 +227,95 @@ describe("POST /v1/chat/completions with strict model names", () => {
     });
 
     expect(res.status).toBe(200);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("POST /v1/chat/completions concurrency limit", () => {
+  function upstreamResponse() {
+    return new Response(
+      JSON.stringify({
+        id: "test-1",
+        object: "chat.completion",
+        model: "deepseek-v4-pro",
+        choices: [{ index: 0, message: { role: "assistant", content: "Hello!" } }],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  function chatRequest(app: ReturnType<typeof createApp>) {
+    return app.request("/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer test-key",
+      },
+      body: JSON.stringify({ messages: [{ role: "user", content: "hi" }] }),
+    });
+  }
+
+  async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!predicate()) {
+      if (Date.now() > deadline) throw new Error("condition was not met in time");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+  }
+
+  function gatedUpstream() {
+    let openGate!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      openGate = resolve;
+    });
+    let calls = 0;
+    const fetchMock = vi.fn(async () => {
+      calls++;
+      if (calls === 1) await gate;
+      return upstreamResponse();
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return { openGate, calls: () => calls };
+  }
+
+  it("queues requests beyond max_concurrency instead of hitting the upstream", async () => {
+    const upstream = gatedUpstream();
+    const store = new ReasoningStore(":memory:");
+    const app = createApp({ ...mockConfig, maxConcurrency: 1 }, store);
+
+    const first = chatRequest(app);
+    await waitFor(() => upstream.calls() === 1);
+
+    const second = chatRequest(app);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(upstream.calls()).toBe(1);
+
+    upstream.openGate();
+    const [firstRes, secondRes] = await Promise.all([first, second]);
+
+    expect(firstRes.status).toBe(200);
+    expect(secondRes.status).toBe(200);
+    expect(upstream.calls()).toBe(2);
+
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects a queued request when no slot frees up in time", async () => {
+    const upstream = gatedUpstream();
+    const store = new ReasoningStore(":memory:");
+    const app = createApp({ ...mockConfig, maxConcurrency: 1, requestTimeout: 0.05 }, store);
+
+    const first = chatRequest(app);
+    await waitFor(() => upstream.calls() === 1);
+
+    const queued = await chatRequest(app);
+    expect(queued.status).toBe(429);
+    const body = (await queued.json()) as any;
+    expect(body.error.code).toBe("concurrency_limit");
+
+    upstream.openGate();
+    expect((await first).status).toBe(200);
+
     vi.unstubAllGlobals();
   });
 });

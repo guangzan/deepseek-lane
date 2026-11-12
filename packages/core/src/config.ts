@@ -28,6 +28,9 @@ ngrok: true
 verbose: false
 request_timeout: 300
 max_request_body_bytes: 20971520
+# Upstream requests allowed in flight at once. Extra requests wait instead of
+# being rejected by the upstream. Set to 0 to disable the limit.
+max_concurrency: 4
 cors: false
 
 missing_reasoning_strategy: recover
@@ -118,6 +121,7 @@ export function createConfig(cliArgs: CliArgs): ProxyConfig {
   rawConfig.thinking = thinking;
   rawConfig.reasoningEffort = validatedReasoningEffort;
   rawConfig.requestTimeout = cliArgs.requestTimeout ?? fromFile("request_timeout", 300);
+  rawConfig.maxConcurrency = cliArgs.maxConcurrency ?? fromFile("max_concurrency", 4);
   rawConfig.maxRequestBodyBytes =
     cliArgs.maxRequestBodyBytes ?? fromFile("max_request_body_bytes", 20 * 1024 * 1024);
   rawConfig.reasoningContentPath = reasoningContentPathVal;

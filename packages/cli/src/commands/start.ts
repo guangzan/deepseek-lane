@@ -41,6 +41,11 @@ const startCmd = new Command("start")
     20971520,
   )
   .option(
+    "--max-concurrency <count>",
+    "Max concurrent upstream requests (0 = unlimited, default from config)",
+    (v: string) => parseInt(v, 10),
+  )
+  .option(
     "--missing-reasoning-strategy <strategy>",
     "Missing reasoning strategy: recover|reject",
     "recover",
@@ -310,6 +315,7 @@ function parseArgs(rawOpts: Record<string, unknown>): CliArgs {
   if (rawOpts.reasoningEffort)
     args.reasoningEffort = rawOpts.reasoningEffort as "low" | "medium" | "high" | "max" | "xhigh";
   if (rawOpts.requestTimeout) args.requestTimeout = rawOpts.requestTimeout as number;
+  if (rawOpts.maxConcurrency !== undefined) args.maxConcurrency = rawOpts.maxConcurrency as number;
   if (rawOpts.maxRequestBodyBytes) args.maxRequestBodyBytes = rawOpts.maxRequestBodyBytes as number;
   if (rawOpts.missingReasoningStrategy)
     args.missingReasoningStrategy = rawOpts.missingReasoningStrategy as "recover" | "reject";
